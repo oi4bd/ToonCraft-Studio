@@ -1,0 +1,17 @@
+<!doctype html><html lang="bn"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ToonCraft Pose Lab</title><style>body{background:#101827;color:#f3f7ff;font:15px system-ui;margin:0;padding:16px}h1{font-size:23px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:12px}.card{background:#1e2c40;padding:10px;border-radius:14px;border:1px solid #415169}.card canvas{width:100%;background:white;border-radius:9px}.card b{display:block;margin-bottom:8px}button{border:0;border-radius:10px;padding:12px;background:#8a6af3;color:white;font-weight:700}#status{padding:12px;background:#22354a;border-radius:10px;margin:12px 0}.good{color:#88e5a2}.bad{color:#ff9292}small{color:#bac8d9}</style><h1>ToonCraft Pose Lab</h1><p>রেফারেন্স ছবি থেকে অনুপ্রাণিত Joint-Pose পরীক্ষা। Live Studio অপরিবর্তিত।</p><div id="status">Loading…</div><button id="toggle">Pause animation</button><p><small>Pose transitions repeat: neutral → target → neutral. Left-facing cards are mirrored for comparison.</small></p><div class="grid" id="grid"></div><script src="pose-library.js"></script><script>
+const lib=window.ToonCraftPoses,results=[];const check=(s,v)=>results.push('<div class="'+(v?'good':'bad')+'">'+(v?'PASS':'FAIL')+' — '+s+'</div>');
+check('Pose library loads',!!lib);
+if(lib){
+check('13 named poses',lib.names.length===13);
+check('Every pose has the same joints',lib.names.every(n=>Object.keys(lib.sample(n,1)).length===Object.keys(lib.sample('idle',0)).length));
+check('Left/right mirror remains supported',typeof lib.render==='function');
+check('Neutral interpolation at t=0',lib.names.every(n=>JSON.stringify(lib.sample(n,0))===JSON.stringify(lib.sample('idle',0))));
+check('Point gesture extends arm',lib.sample('point',1).rightHand.x>lib.sample('idle',1).rightHand.x);
+check('Crouch lowers head',lib.sample('crouch',1).head.y>lib.sample('idle',1).head.y);
+check('Jump raises hands',lib.sample('jump',1).leftHand.y<lib.sample('idle',1).leftHand.y);
+check('Interpolation is deterministic',JSON.stringify(lib.sample('wave',.5))===JSON.stringify(lib.sample('wave',.5)));
+}
+document.getElementById('status').innerHTML=results.join('');
+let paused=false,pausedAt=0;document.getElementById('toggle').onclick=()=>{paused=!paused;if(paused)pausedAt=performance.now();document.getElementById('toggle').textContent=paused?'Resume animation':'Pause animation'};
+if(lib)for(const name of lib.names){const box=document.createElement('div');box.className='card';const title=document.createElement('b');title.textContent=name;const c=document.createElement('canvas');c.width=300;c.height=390;box.append(title,c);document.getElementById('grid').append(box);const ctx=c.getContext('2d');function frame(){const t=(paused?pausedAt:performance.now())/1000;const f=(Math.sin(t*2-Math.PI/2)+1)/2;ctx.fillStyle='white';ctx.fillRect(0,0,300,390);ctx.strokeStyle='#ddd';ctx.beginPath();ctx.moveTo(0,360);ctx.lineTo(300,360);ctx.stroke();lib.render(ctx,name,f,{x:150,y:225,scale:.9,facing:name==='walk'?'left':'right'});requestAnimationFrame(frame)}frame()}
+</script></html>
