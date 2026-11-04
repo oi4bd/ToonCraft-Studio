@@ -17,12 +17,24 @@ const poses=[
  {phase:1,hip:0,front:43,rear:-43,frontLift:0,rearLift:0,arm:1}
 ];
 function sample(phase){const q=((phase%1)+1)%1;let i=0;while(i<poses.length-2&&q>poses[i+1].phase)i++;const a=poses[i],b=poses[i+1],u=smooth((q-a.phase)/(b.phase-a.phase));const o={};for(const k of ['hip','front','rear','frontLift','rearLift','arm'])o[k]=mix(a[k],b[k],u);return o}
-function ik(hip,foot,upper=78,lower=76,forward=1){let dx=foot[0]-hip[0],dy=foot[1]-hip[1],d=Math.hypot(dx,dy)||1;const reach=clamp(d,1,upper+lower-.2),along=(upper*upper-lower*lower+reach*reach)/(2*reach),perp=Math.sqrt(Math.max(0,upper*upper-along*along));const ux=dx/d,uy=dy/d;return [hip[0]+ux*along+(-uy)*perp*forward,hip[1]+uy*along+ux*perp*forward]}
+function ik(hip,foot,upper=78,lower=76,forward=1){
+ // Project unreachable ankle targets onto the valid two-bone reach circle.
+ // Using the original distance for direction but a clamped distance for
+ // intersection previously produced inconsistent knee-to-ankle bone lengths.
+ const dx=foot[0]-hip[0],dy=foot[1]-hip[1],d=Math.hypot(dx,dy);
+ const ux=d>1e-8?dx/d:0,uy=d>1e-8?dy/d:1;
+ const reach=clamp(d,Math.abs(upper-lower)+.001,upper+lower-.001);
+ const ankle=[hip[0]+ux*reach,hip[1]+uy*reach];
+ const along=(upper*upper-lower*lower+reach*reach)/(2*reach);
+ const perp=Math.sqrt(Math.max(0,upper*upper-along*along));
+ const knee=[hip[0]+ux*along-uy*perp*forward,hip[1]+uy*along+ux*perp*forward];
+ return knee;
+}
 function render(c,s,t,opt={}){
  const dur=Math.max(.1,Number(s.seconds)||4),p=clamp(t/dur,0,1),action=s.action||'idle',movement=s.movement||'still';
  const auto={ltr:'right',rtl:'left',toward:'front',away:'back',still:'front'}[movement]||'front';
  const facing=s.facing&&s.facing!=='auto'?s.facing:auto;
- const side=facing==='left'||facing==='right',back=facing==='back'||facing.startsWith('back'),quarter=facing.startsWith('front')||facing.startsWith('back');
+ const side=facing==='left'||facing==='right',back=facing==='back'||facing.startsWith('back'),quarter=/^(front|back)[-_](left|right)$/.test(facing);
  const sign=facing==='left'||facing.endsWith('left')?-1:1;
  const locomotion=action==='walk'||action==='run',running=action==='run';
  const intensity=clamp(Number(s.intensity)||1,.1,2);
@@ -153,5 +165,5 @@ function render(c,s,t,opt={}){
  c.restore();
  return {x,y,facing,action,phase:cycle%1,pose};
 }
-root.ToonCraftCharacterV2=Object.freeze({render,version:'3.1.0',sample,ik});
+root.ToonCraftCharacterV2=Object.freeze({render,version:'3.1.1',sample,ik});
 })(window);
