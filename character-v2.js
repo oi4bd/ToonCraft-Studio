@@ -71,13 +71,32 @@ function render(c,s,t,opt={}){
  const armSwing=locomotion?pose.arm*(running?38:26)*intensity:action==='laugh'?Math.sin(t*12)*17:0;
  const wave=action==='wave',raised=action==='jump'||action==='surprise';
  const leftShoulder=[shoulderX-bodyWidth,shoulderY],rightShoulder=[shoulderX+bodyWidth,shoulderY];
- const leftElbow=raised?[-78,shoulderY-42]:action==='laugh'?[shoulderX-bodyWidth-32,shoulderY+26]:[shoulderX-bodyWidth-22-armSwing*.45,shoulderY+(running?20:45)];
- const rightElbow=wave||raised?[bodyWidth+23,shoulderY-47]:action==='laugh'?[shoulderX+bodyWidth+32,shoulderY+26]:[shoulderX+bodyWidth+22+armSwing*.45,shoulderY+(running?20:45)];
- const leftHand=raised?[-87,shoulderY-100]:action==='laugh'?[shoulderX-bodyWidth-12,shoulderY+65+Math.sin(t*12)*9]:[leftElbow[0]-15-armSwing*.55,leftElbow[1]+(running?10:38)];
- const rightHand=wave?[bodyWidth+45+Math.sin(t*11)*9,shoulderY-110]:raised?[83,shoulderY-99]:action==='laugh'?[shoulderX+bodyWidth+12,shoulderY+65-Math.sin(t*12)*9]:[rightElbow[0]+15+armSwing*.55,rightElbow[1]+(running?10:38)];
+ let leftElbow,rightElbow,leftHand,rightHand;
+ if(side&&locomotion){
+  // Side-view arm rig: near arm moves opposite the leading foot; far arm mirrors its phase.
+  // Both are defined in canonical RIGHT-facing coordinates; canvas mirrors for LEFT.
+  const swing=clamp(pose.front/43,-1,1)*intensity;
+  const amplitude=running?53:37,reach=running?70:78;
+  const armPose=(shoulder,phase)=>{
+   const dx=phase*amplitude;
+   const elbow=[shoulder[0]+dx*.55,shoulder[1]+(running?31:43)];
+   const hand=[shoulder[0]+dx,shoulder[1]+reach-(running?Math.abs(phase)*13:0)];
+   // Running arms have visibly bent elbows; walking arms hang more naturally.
+   if(running){elbow[0]=shoulder[0]+dx*.85+(phase>=0?12:-12);hand[0]=shoulder[0]+dx*.9;}
+   return {elbow,hand};
+  };
+  const near=armPose(leftShoulder,-swing),far=armPose(rightShoulder,swing);
+  leftElbow=near.elbow;leftHand=near.hand;rightElbow=far.elbow;rightHand=far.hand;
+ }else{
+  leftElbow=raised?[-78,shoulderY-42]:action==='laugh'?[shoulderX-bodyWidth-32,shoulderY+26]:[shoulderX-bodyWidth-22-armSwing*.45,shoulderY+(running?20:45)];
+  rightElbow=wave||raised?[bodyWidth+23,shoulderY-47]:action==='laugh'?[shoulderX+bodyWidth+32,shoulderY+26]:[shoulderX+bodyWidth+22+armSwing*.45,shoulderY+(running?20:45)];
+  leftHand=raised?[-87,shoulderY-100]:action==='laugh'?[shoulderX-bodyWidth-12,shoulderY+65+Math.sin(t*12)*9]:[leftElbow[0]-15-armSwing*.55,leftElbow[1]+(running?10:38)];
+  rightHand=wave?[bodyWidth+45+Math.sin(t*11)*9,shoulderY-110]:raised?[83,shoulderY-99]:action==='laugh'?[shoulderX+bodyWidth+12,shoulderY+65-Math.sin(t*12)*9]:[rightElbow[0]+15+armSwing*.55,rightElbow[1]+(running?10:38)];
+ }
+ // Far arm behind the torso, near arm in front for a readable silhouette.
+ line([rightShoulder,rightElbow,rightHand],stick?8:12,side?'#657185':ink);
  line([leftShoulder,leftElbow,leftHand],stick?8:12);
- line([rightShoulder,rightElbow,rightHand],stick?8:12);
- if(!stick){oval(...leftHand,10,10,skin,3);oval(...rightHand,10,10,skin,3)}
+ if(!stick){oval(...rightHand,10,10,skin,3);oval(...leftHand,10,10,skin,3)}
  const headX=shoulderX+(side?10:quarter?6:0),headY=shoulderY-103;
  line([[shoulderX,shoulderY],[headX,headY+76]],stick?9:15);
  oval(headX,headY,side?64:quarter?73:81,85,skin,6);
@@ -97,5 +116,5 @@ function render(c,s,t,opt={}){
  c.restore();
  return {x,y,facing,action,phase:cycle%1,pose};
 }
-root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.3',sample,ik});
+root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.4',sample,ik});
 })(window);
