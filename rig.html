@@ -1,0 +1,43 @@
+<!doctype html><html lang="bn"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ToonCraft · Character Rig</title><style>
+*{box-sizing:border-box}body{margin:0;background:#0b1220;color:#e9eefb;font:14px system-ui,sans-serif}.wrap{max-width:850px;margin:auto;padding:14px}header,.bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}a{color:#bba6ff}button,input,select{font:inherit}button,.file{border:1px solid #45506b;border-radius:11px;background:#25324b;color:white;padding:10px 12px;cursor:pointer}button.primary{background:#7254dc}button:disabled{opacity:.5}.panel{background:#151e31;border:1px solid #303e58;border-radius:16px;padding:14px;margin-top:12px}canvas{width:100%;height:auto;max-height:60vh;touch-action:none;background:repeating-conic-gradient(#e9eef2 0% 25%,#cdd6df 0% 50%) 50%/24px 24px;border-radius:10px}.hint{color:#abb9d2;line-height:1.6}label{display:block;margin:8px 0}.status{color:#9de2c3}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}small{color:#abb9d2}</style></head><body><div class="wrap">
+<header><div><h2>Character Rig Studio</h2><small>নিজের Transparent PNG থেকে Manual Skeleton তৈরি করুন</small></div><a href="./">← Main Studio</a></header>
+<section class="panel"><label>Character PNG <input id="upload" type="file" accept="image/png"></label><p class="hint">প্রথমে স্বচ্ছ ব্যাকগ্রাউন্ডের সোজা দাঁড়ানো চরিত্রের PNG দিন (সর্বোচ্চ 3 MB)। এরপর প্রতিটি Joint-এর নাম বেছে ছবির ওপর স্পর্শ করুন। এটি Manual Rig: স্বয়ংক্রিয় Body Part Separation নয়।</p><div class="bar"><label>Joint <select id="joint"></select></label><button id="reset">Reset joints</button></div><canvas id="stage" width="480" height="600"></canvas><p id="status" class="status">PNG নির্বাচন করুন।</p></section>
+<section class="panel"><div class="bar"><strong>Pose Preview</strong><label>Pose <select id="pose"><option value="idle">Idle</option><option value="walk">Walk</option><option value="run">Run</option><option value="wave">Wave</option></select></label></div><p class="hint">Preview-তে মূল ছবির ওপর Joint Motion Guide দেখানো হয়। সম্পূর্ণ Cutout Animation-এর জন্য আলাদা Body Part Images প্রয়োজন।</p><div class="bar"><button id="save" class="primary">Save rig to this browser</button><button id="export">Export rig JSON</button><button id="clear">Remove saved rig</button></div><p id="saved" class="status"></p></section>
+</div><script>
+'use strict';
+const $=id=>document.getElementById(id),canvas=$('stage'),c=canvas.getContext('2d');
+const names=['head','neck','shoulderL','elbowL','wristL','shoulderR','elbowR','wristR','hipL','kneeL','ankleL','hipR','kneeR','ankleR'];
+const edges=[['head','neck'],['neck','shoulderL'],['shoulderL','elbowL'],['elbowL','wristL'],['neck','shoulderR'],['shoulderR','elbowR'],['elbowR','wristR'],['neck','hipL'],['neck','hipR'],['hipL','kneeL'],['kneeL','ankleL'],['hipR','kneeR'],['kneeR','ankleR']];
+let data=null,img=null,selected=0;
+for(const n of names){const o=document.createElement('option');o.value=n;o.textContent=n;$('joint').append(o)}
+const defaults={head:[.5,.13],neck:[.5,.25],shoulderL:[.38,.29],elbowL:[.32,.43],wristL:[.3,.57],shoulderR:[.62,.29],elbowR:[.68,.43],wristR:[.7,.57],hipL:[.44,.57],kneeL:[.42,.75],ankleL:[.4,.94],hipR:[.56,.57],kneeR:[.58,.75],ankleR:[.6,.94]};
+function render(){
+ c.clearRect(0,0,480,600);if(!data||!img)return;
+ c.drawImage(img,0,0,480,600);
+ const pts=data.joints,phase=Number($('pose').value==='idle'?0:Date.now()/450);
+ const shifted=(name)=>{const [x,y]=pts[name];let dx=0,dy=0;const p=$('pose').value;
+ if(p==='walk'||p==='run'){const speed=p==='run'?1.5:1;const a=Math.sin(phase*speed);if(/(wrist|elbow)L/.test(name))dx=-a*.035;if(/(wrist|elbow)R/.test(name))dx=a*.035;if(/(knee|ankle)L/.test(name))dx=a*.04;if(/(knee|ankle)R/.test(name))dx=-a*.04}
+ if(p==='wave'&&name==='wristR'){dx=-.06;dy=-.26}
+ return [(x+dx)*480,(y+dy)*600]};
+ c.lineWidth=3;c.strokeStyle='#7b40ef';for(const [a,b] of edges){const p=shifted(a),q=shifted(b);c.beginPath();c.moveTo(...p);c.lineTo(...q);c.stroke()}
+ names.forEach((n,i)=>{const [x,y]=shifted(n);c.beginPath();c.arc(x,y,i===selected?8:5,0,Math.PI*2);c.fillStyle=i===selected?'#f59e0b':'#34d399';c.fill();c.strokeStyle='#142033';c.stroke()});
+ requestAnimationFrame(render)
+}
+function imageLoad(src){return new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=src})}
+$('upload').onchange=async e=>{const f=e.target.files[0];if(!f)return;if(f.type!=='image/png'||f.size>3e6){$('status').textContent='PNG only, maximum 3 MB';return}
+ const url=URL.createObjectURL(f);try{const image=await imageLoad(url);if(image.width>4096||image.height>4096)throw Error('Maximum image dimension 4096px');
+ const off=document.createElement('canvas');off.width=480;off.height=600;const o=off.getContext('2d');
+ const scale=Math.min(440/image.width,560/image.height),w=image.width*scale,h=image.height*scale;o.drawImage(image,(480-w)/2,(600-h)/2,w,h);
+ const pixels=o.getImageData(0,0,480,600).data;let transparent=false;for(let i=3;i<pixels.length;i+=4)if(pixels[i]===0){transparent=true;break}
+ if(!transparent)throw Error('Transparent PNG required (image has no transparent pixels)');
+ const encoded=off.toDataURL('image/png');img=await imageLoad(encoded);data={version:1,name:f.name.slice(0,80),image:encoded,joints:structuredClone(defaults)};
+ $('status').textContent='Image loaded. Tap joints in order to place them.'}catch(err){$('status').textContent=err.message}finally{URL.revokeObjectURL(url);e.target.value=''}};
+$('joint').onchange=()=>selected=names.indexOf($('joint').value);
+canvas.addEventListener('pointerdown',e=>{if(!data)return;const rect=canvas.getBoundingClientRect(),x=Math.max(0,Math.min(1,(e.clientX-rect.left)/rect.width)),y=Math.max(0,Math.min(1,(e.clientY-rect.top)/rect.height));data.joints[names[selected]]=[x,y];selected=(selected+1)%names.length;$('joint').value=names[selected];$('status').textContent='Joint positioned. Next: '+names[selected]});
+$('reset').onclick=()=>{if(data)data.joints=structuredClone(defaults)};
+$('save').onclick=()=>{if(!data)return $('saved').textContent='Upload PNG first';try{localStorage.setItem('tooncraft-character-rig',JSON.stringify(data));$('saved').textContent='Saved locally. Main Studio can access this rig.'}catch(err){$('saved').textContent='Storage full: export JSON instead'}};
+$('export').onclick=()=>{if(!data)return;const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='tooncraft-character-rig.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+$('clear').onclick=()=>{localStorage.removeItem('tooncraft-character-rig');$('saved').textContent='Saved rig removed'};
+try{const saved=JSON.parse(localStorage.getItem('tooncraft-character-rig'));if(saved?.version===1&&saved.image?.startsWith('data:image/png;base64,')&&names.every(n=>Array.isArray(saved.joints?.[n]))){imageLoad(saved.image).then(im=>{img=im;data=saved;$('status').textContent='Saved rig loaded';requestAnimationFrame(render)})}}catch(e){}
+requestAnimationFrame(render);
+</script></body></html>
