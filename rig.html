@@ -12,7 +12,7 @@ let data=null,img=null,selected=0;
 for(const n of names){const o=document.createElement('option');o.value=n;o.textContent=n;$('joint').append(o)}
 const defaults={head:[.5,.13],neck:[.5,.25],shoulderL:[.38,.29],elbowL:[.32,.43],wristL:[.3,.57],shoulderR:[.62,.29],elbowR:[.68,.43],wristR:[.7,.57],hipL:[.44,.57],kneeL:[.42,.75],ankleL:[.4,.94],hipR:[.56,.57],kneeR:[.58,.75],ankleR:[.6,.94]};
 function render(){
- c.clearRect(0,0,480,600);if(!data||!img)return;
+ c.clearRect(0,0,480,600);if(!data||!img){requestAnimationFrame(render);return;}
  c.drawImage(img,0,0,480,600);
  const pts=data.joints,phase=Number($('pose').value==='idle'?0:Date.now()/450);
  const shifted=(name)=>{const [x,y]=pts[name];let dx=0,dy=0;const p=$('pose').value;
