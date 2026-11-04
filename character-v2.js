@@ -66,37 +66,49 @@ function render(c,s,t,opt={}){
  line([hipLeft,knee1,f1],legWidth);
  if(!stick){oval(f2[0]+10,f2[1]+2,19,8,'#f7f7f8',3);oval(f1[0]+10,f1[1]+2,19,8,'#f7f7f8',3)}
  const shoulderY=-266+bodyBob,shoulderX=lean;
- if(stick)line([[0,hipY],[shoulderX,shoulderY]],11);
- else{c.beginPath();c.moveTo(shoulderX-bodyWidth,shoulderY);c.lineTo(shoulderX+bodyWidth,shoulderY);c.lineTo(bodyWidth*.7,hipY);c.lineTo(-bodyWidth*.7,hipY);c.closePath();c.fillStyle=shirt;c.fill();c.strokeStyle=ink;c.lineWidth=6;c.stroke()}
  const armSwing=locomotion?pose.arm*(running?38:26)*intensity:action==='laugh'?Math.sin(t*12)*17:0;
  const wave=action==='wave',raised=action==='jump'||action==='surprise';
- const leftShoulder=[shoulderX-bodyWidth,shoulderY],rightShoulder=[shoulderX+bodyWidth,shoulderY];
+ // In profile both shoulder pivots share the torso silhouette. The far arm
+ // must be painted BEFORE the torso; the near arm must be painted AFTER it.
+ const leftShoulder=[shoulderX-(side?4:bodyWidth),shoulderY+3];
+ const rightShoulder=[shoulderX+(side?4:bodyWidth),shoulderY+3];
  let leftElbow,rightElbow,leftHand,rightHand;
  if(side&&locomotion){
-  // Side-view arm rig: near arm moves opposite the leading foot; far arm mirrors its phase.
-  // Both are defined in canonical RIGHT-facing coordinates; canvas mirrors for LEFT.
-  const swing=clamp(pose.front/43,-1,1)*intensity;
-  const amplitude=running?53:37,reach=running?70:78;
-  const armPose=(shoulder,phase)=>{
-   const dx=phase*amplitude;
-   const elbow=[shoulder[0]+dx*.55,shoulder[1]+(running?31:43)];
-   const hand=[shoulder[0]+dx,shoulder[1]+reach-(running?Math.abs(phase)*13:0)];
-   // Running arms have visibly bent elbows; walking arms hang more naturally.
-   if(running){elbow[0]=shoulder[0]+dx*.85+(phase>=0?12:-12);hand[0]=shoulder[0]+dx*.9;}
+  // Canonical RIGHT-facing coordinates. c.scale(scale*sign,scale) mirrors LEFT.
+  // Leading near leg -> near arm swings backward; far arm swings forward.
+  const phase=clamp(pose.front/43,-1,1)*intensity;
+  const armPose=(shoulder,swing)=>{
+   const reach=running?59:79,travel=running?58:46;
+   const dx=swing*travel;
+   // Elbows flex more for running; walking forearms remain almost straight.
+   const elbow=[shoulder[0]+dx*.55,shoulder[1]+(running?27:43)];
+   const hand=[shoulder[0]+dx,shoulder[1]+reach-(running?Math.abs(swing)*8:0)];
+   if(running){elbow[0]=shoulder[0]+dx*.85;hand[0]=shoulder[0]+dx*.93;}
    return {elbow,hand};
   };
-  const near=armPose(leftShoulder,-swing),far=armPose(rightShoulder,swing);
-  leftElbow=near.elbow;leftHand=near.hand;rightElbow=far.elbow;rightHand=far.hand;
+  const near=armPose(leftShoulder,-phase),far=armPose(rightShoulder,phase);
+  leftElbow=near.elbow;leftHand=near.hand;
+  rightElbow=far.elbow;rightHand=far.hand;
  }else{
   leftElbow=raised?[-78,shoulderY-42]:action==='laugh'?[shoulderX-bodyWidth-32,shoulderY+26]:[shoulderX-bodyWidth-22-armSwing*.45,shoulderY+(running?20:45)];
   rightElbow=wave||raised?[bodyWidth+23,shoulderY-47]:action==='laugh'?[shoulderX+bodyWidth+32,shoulderY+26]:[shoulderX+bodyWidth+22+armSwing*.45,shoulderY+(running?20:45)];
   leftHand=raised?[-87,shoulderY-100]:action==='laugh'?[shoulderX-bodyWidth-12,shoulderY+65+Math.sin(t*12)*9]:[leftElbow[0]-15-armSwing*.55,leftElbow[1]+(running?10:38)];
   rightHand=wave?[bodyWidth+45+Math.sin(t*11)*9,shoulderY-110]:raised?[83,shoulderY-99]:action==='laugh'?[shoulderX+bodyWidth+12,shoulderY+65-Math.sin(t*12)*9]:[rightElbow[0]+15+armSwing*.55,rightElbow[1]+(running?10:38)];
  }
- // Far arm behind the torso, near arm in front for a readable silhouette.
+ // Layer 1: far arm and hand (behind torso).
  line([rightShoulder,rightElbow,rightHand],stick?8:12,side?'#657185':ink);
+ if(!stick)oval(...rightHand,10,10,skin,3);
+ // Layer 2: torso occludes the far arm where the two overlap.
+ if(stick)line([[0,hipY],[shoulderX,shoulderY]],11);
+ else{
+  c.beginPath();c.moveTo(shoulderX-bodyWidth,shoulderY);
+  c.lineTo(shoulderX+bodyWidth,shoulderY);
+  c.lineTo(bodyWidth*.7,hipY);c.lineTo(-bodyWidth*.7,hipY);
+  c.closePath();c.fillStyle=shirt;c.fill();c.strokeStyle=ink;c.lineWidth=6;c.stroke();
+ }
+ // Layer 3: near arm in front of torso, but offset from its center.
  line([leftShoulder,leftElbow,leftHand],stick?8:12);
- if(!stick){oval(...rightHand,10,10,skin,3);oval(...leftHand,10,10,skin,3)}
+ if(!stick)oval(...leftHand,10,10,skin,3);
  const headX=shoulderX+(side?10:quarter?6:0),headY=shoulderY-103;
  line([[shoulderX,shoulderY],[headX,headY+76]],stick?9:15);
  oval(headX,headY,side?64:quarter?73:81,85,skin,6);
@@ -116,5 +128,5 @@ function render(c,s,t,opt={}){
  c.restore();
  return {x,y,facing,action,phase:cycle%1,pose};
 }
-root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.4',sample,ik});
+root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.5',sample,ik});
 })(window);
