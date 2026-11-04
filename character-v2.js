@@ -53,8 +53,11 @@ function render(c,s,t,opt={}){
  const f1=locomotion?[spread+pose.front*strideFactor,-pose.frontLift*intensity]:[-spread-(action==='surprise'?8:0),0];
  const f2=locomotion?[-spread+pose.rear*strideFactor,-pose.rearLift*intensity]:[spread+(action==='surprise'?8:0),0];
  // A side-view walk bends both knees forward in screen space; frontal knees remain on their own side.
- const knee1=locomotion?ik(hipLeft,f1,80,80,side?1:-1):[mix(hipLeft[0],f1[0],.5),mix(hipLeft[1],f1[1],.5)];
- const knee2=locomotion?ik(hipRight,f2,80,80,side?1:1):[mix(hipRight[0],f2[0],.5),mix(hipRight[1],f2[1],.5)];
+ // Canonical side rig faces RIGHT. Canvas mirror handles LEFT: never invert knee bend twice.
+ // With a downward-pointing hip-to-ankle vector, IK bend=-1 places the knee forward (+X).
+ // Keep both legs on the same anatomical bend side; front/back view uses lateral bends.
+ const knee1=locomotion?ik(hipLeft,f1,80,80,side?-1:-1):[mix(hipLeft[0],f1[0],.5),mix(hipLeft[1],f1[1],.5)];
+ const knee2=locomotion?ik(hipRight,f2,80,80,side?-1:1):[mix(hipRight[0],f2[0],.5),mix(hipRight[1],f2[1],.5)];
  if(!side&&!quarter){knee1[0]=Math.min(knee1[0],-5);knee2[0]=Math.max(knee2[0],5)}
 
  // Draw far leg first and near leg last to preserve overlap.
@@ -94,5 +97,5 @@ function render(c,s,t,opt={}){
  c.restore();
  return {x,y,facing,action,phase:cycle%1,pose};
 }
-root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.2',sample,ik});
+root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.3',sample,ik});
 })(window);
