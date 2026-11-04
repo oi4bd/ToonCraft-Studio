@@ -23,24 +23,30 @@ function render(c,s,t,opt={}){
  if(movement==='away'){y=lerp(745,570,p);scale*=lerp(1.2,.65,p)}
  if(s.camera==='follow'&&movement!=='still')x=270;
  if(s.camera==='medium'){scale*=1.38;y=820}
- if(s.camera==='close'){scale*=2.05;x=270;y=940}
+ if(s.camera==='close'){scale*=1.38;x=270;y=780}
  const stick=opt.style==='stick',ink='#263246',skin=opt.colors?.skin||'#fff4e5',shirt=opt.colors?.shirt||'#f1a94e',hair=opt.colors?.hair||'#20283a';
  const line=(pts,w=9,color=ink)=>{c.beginPath();pts.forEach((q,i)=>i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1]));c.strokeStyle=color;c.lineWidth=w;c.lineCap='round';c.lineJoin='round';c.stroke()};
  const oval=(x,y,rx,ry,fill,sw=4)=>{c.beginPath();c.ellipse(x,y,rx,ry,0,0,pi*2);c.fillStyle=fill;c.fill();if(sw){c.strokeStyle=ink;c.lineWidth=sw;c.stroke()}};
  c.save();c.translate(x,y-bounce-jump);c.scale(scale*dir,scale);
  c.globalAlpha=.18;oval(0,12,75,11,'#273d4a',0);c.globalAlpha=1;
  const sideWidth=side?8:quarter?17:25,lean=locomotion?(action==='run'?17:7):0;
- // Separate far/near limbs in profile, with foot lift and stride.
- if(side||quarter){line([[-6,-143],[-12-stride*.34,-76],[-13-stride,-liftA]],stick?7:12,'#536071');line([[-8,-263],[-23-arm*.35,-210],[-35-arm,-174]],stick?7:12,'#536071')}
- line([[-sideWidth,-143],[-sideWidth-stride*.33,-75],[-sideWidth-stride,-liftA]],stick?8:15);
- line([[sideWidth,-143],[sideWidth+stride*.33,-75],[sideWidth+stride,-liftB]],stick?8:15);
- if(!stick){oval(-sideWidth-stride,-liftA+1,19,9,'#fff',3);oval(sideWidth+stride,-liftB+1,19,9,'#fff',3)}
+ // Alternating planted feet: each leg swings opposite the other.
+ // The previous renderer used identical stride signs, causing legs to cross.
+ const leftStride=stride,rightStride=-stride;
+ const kneeY=-75;
+ const leftFootX=-sideWidth+leftStride,rightFootX=sideWidth+rightStride;
+ if(side||quarter){
+   line([[-6,-143],[-8+rightStride*.46,kneeY],[-8+rightStride,-liftB]],stick?6:10,'#536071');
+ }
+ line([[-sideWidth,-143],[-sideWidth+leftStride*.45,kneeY], [leftFootX,-liftA]],stick?8:14);
+ line([[sideWidth,-143],[sideWidth+rightStride*.45,kneeY],[rightFootX,-liftB]],stick?8:14);
+ if(!stick){oval(leftFootX,-liftA+1,19,9,'#fff',3);oval(rightFootX,-liftB+1,19,9,'#fff',3)}
  if(stick)line([[0,-143],[lean,-274]],12);else{
  c.beginPath();c.moveTo(-37,-275);c.lineTo(37,-275);c.lineTo(29,-146);c.lineTo(-29,-146);c.closePath();c.fillStyle=shirt;c.fill();c.strokeStyle=ink;c.lineWidth=6;c.stroke();
  }
  const shoulder=side?12:quarter?27:43,handWave=action==='wave',handPoint=action==='point',handsUp=action==='jump';
- const leftHand=handsUp?[-76,-357]:[-shoulder-45-arm,-180];
- const rightHand=handWave?[shoulder+36,-354+Math.sin(t*11)*13]:handPoint?[shoulder+95,-268]:handsUp?[76,-357]:[shoulder+45+arm,-180];
+ const leftHand=handsUp?[-76,-357]:[-shoulder-45+arm,-180];
+ const rightHand=handWave?[shoulder+36,-354+Math.sin(t*11)*13]:handPoint?[shoulder+95,-268]:handsUp?[76,-357]:[shoulder+45-arm,-180];
  line([[-shoulder,-265],[-shoulder-28,-224],leftHand],stick?8:13);
  line([[shoulder,-265],[shoulder+28,-224],rightHand],stick?8:13);
  if(!stick){oval(leftHand[0],leftHand[1],11,11,skin,3);oval(rightHand[0],rightHand[1],11,11,skin,3)}
@@ -65,5 +71,5 @@ function render(c,s,t,opt={}){
  }else line([[hx-30,hy-45],[hx,hy-57],[hx+30,hy-45]],4,'#59667b');
  c.restore();return {x,y,facing,action,stride};
 }
-root.ToonCraftCharacterV2=Object.freeze({render,version:'2.0.0'});
+root.ToonCraftCharacterV2=Object.freeze({render,version:'2.1.0'});
 })(window);
