@@ -49,10 +49,13 @@ function render(c,s,t,opt={}){
  c.globalAlpha=.15;oval(0,10,75,10,'#263246');c.globalAlpha=1;
  // Foot anchors are independently derived from a full keyed cycle; IK fixes bone lengths.
  const hipY=-148+bodyBob,hipLeft=[-bodyWidth*.5,hipY],hipRight=[bodyWidth*.5,hipY];
- const spread=side?3:quarter?11:22;
+ const spread=side?9:quarter?18:29;
  const f1=locomotion?[spread+pose.front*strideFactor,-pose.frontLift*intensity]:[-spread,0];
  const f2=locomotion?[-spread+pose.rear*strideFactor,-pose.rearLift*intensity]:[spread,0];
- const knee1=ik(hipLeft,f1,80,80,-1),knee2=ik(hipRight,f2,80,80,1);
+ // A side-view walk bends both knees forward in screen space; frontal knees remain on their own side.
+ const knee1=ik(hipLeft,f1,80,80,side?1:-1),knee2=ik(hipRight,f2,80,80,side?1:1);
+ if(!side&&!quarter){knee1[0]=Math.min(knee1[0],-5);knee2[0]=Math.max(knee2[0],5)}
+
  // Draw far leg first and near leg last to preserve overlap.
  const legWidth=stick?8:14;
  line([hipRight,knee2,f2],legWidth,side||quarter?'#657185':ink);
@@ -90,5 +93,5 @@ function render(c,s,t,opt={}){
  c.restore();
  return {x,y,facing,action,phase:cycle%1,pose};
 }
-root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.0',sample,ik});
+root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.1',sample,ik});
 })(window);
