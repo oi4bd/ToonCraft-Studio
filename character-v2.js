@@ -43,17 +43,18 @@ function render(c,s,t,opt={}){
  const oval=(x,y,rx,ry,color,stroke=0)=>{c.beginPath();c.ellipse(x,y,rx,ry,0,0,TAU);c.fillStyle=color;c.fill();if(stroke){c.strokeStyle=ink;c.lineWidth=stroke;c.stroke()}};
  const bodyWidth=side?12:quarter?25:40;
  const pose=locomotion?g:{hip:0,front:0,rear:0,frontLift:0,rearLift:0,arm:0};
- const bodyBob=locomotion?pose.hip*(running?1.3:1):0;
- const lean=locomotion?(running?24:8):action==='surprise'?-10:0;
+ const bodyBob=locomotion?pose.hip*(running?1.3:1):action==='laugh'?Math.sin(t*12)*5:action==='surprise'?Math.sin(t*9)*2:0;
+ const lean=locomotion?(running?30:8):action==='surprise'?-10:action==='laugh'?Math.sin(t*8)*9:0;
  c.save();c.translate(x,y-jump);c.scale(scale*sign,scale);
  c.globalAlpha=.15;oval(0,10,75,10,'#263246');c.globalAlpha=1;
  // Foot anchors are independently derived from a full keyed cycle; IK fixes bone lengths.
  const hipY=-148+bodyBob,hipLeft=[-bodyWidth*.5,hipY],hipRight=[bodyWidth*.5,hipY];
  const spread=side?9:quarter?18:29;
- const f1=locomotion?[spread+pose.front*strideFactor,-pose.frontLift*intensity]:[-spread,0];
- const f2=locomotion?[-spread+pose.rear*strideFactor,-pose.rearLift*intensity]:[spread,0];
+ const f1=locomotion?[spread+pose.front*strideFactor,-pose.frontLift*intensity]:[-spread-(action==='surprise'?8:0),0];
+ const f2=locomotion?[-spread+pose.rear*strideFactor,-pose.rearLift*intensity]:[spread+(action==='surprise'?8:0),0];
  // A side-view walk bends both knees forward in screen space; frontal knees remain on their own side.
- const knee1=ik(hipLeft,f1,80,80,side?1:-1),knee2=ik(hipRight,f2,80,80,side?1:1);
+ const knee1=locomotion?ik(hipLeft,f1,80,80,side?1:-1):[mix(hipLeft[0],f1[0],.5),mix(hipLeft[1],f1[1],.5)];
+ const knee2=locomotion?ik(hipRight,f2,80,80,side?1:1):[mix(hipRight[0],f2[0],.5),mix(hipRight[1],f2[1],.5)];
  if(!side&&!quarter){knee1[0]=Math.min(knee1[0],-5);knee2[0]=Math.max(knee2[0],5)}
 
  // Draw far leg first and near leg last to preserve overlap.
@@ -64,13 +65,13 @@ function render(c,s,t,opt={}){
  const shoulderY=-266+bodyBob,shoulderX=lean;
  if(stick)line([[0,hipY],[shoulderX,shoulderY]],11);
  else{c.beginPath();c.moveTo(shoulderX-bodyWidth,shoulderY);c.lineTo(shoulderX+bodyWidth,shoulderY);c.lineTo(bodyWidth*.7,hipY);c.lineTo(-bodyWidth*.7,hipY);c.closePath();c.fillStyle=shirt;c.fill();c.strokeStyle=ink;c.lineWidth=6;c.stroke()}
- const armSwing=locomotion?pose.arm*(running?38:26)*intensity:0;
+ const armSwing=locomotion?pose.arm*(running?38:26)*intensity:action==='laugh'?Math.sin(t*12)*17:0;
  const wave=action==='wave',raised=action==='jump'||action==='surprise';
  const leftShoulder=[shoulderX-bodyWidth,shoulderY],rightShoulder=[shoulderX+bodyWidth,shoulderY];
- const leftElbow=raised?[-78,shoulderY-42]:[shoulderX-bodyWidth-22-armSwing*.45,shoulderY+45];
- const rightElbow=wave||raised?[bodyWidth+23,shoulderY-47]:[shoulderX+bodyWidth+22+armSwing*.45,shoulderY+45];
- const leftHand=raised?[-87,shoulderY-100]:[leftElbow[0]-15-armSwing*.55,leftElbow[1]+38];
- const rightHand=wave?[bodyWidth+45+Math.sin(t*11)*9,shoulderY-110]:raised?[83,shoulderY-99]:[rightElbow[0]+15+armSwing*.55,rightElbow[1]+38];
+ const leftElbow=raised?[-78,shoulderY-42]:action==='laugh'?[shoulderX-bodyWidth-32,shoulderY+26]:[shoulderX-bodyWidth-22-armSwing*.45,shoulderY+(running?20:45)];
+ const rightElbow=wave||raised?[bodyWidth+23,shoulderY-47]:action==='laugh'?[shoulderX+bodyWidth+32,shoulderY+26]:[shoulderX+bodyWidth+22+armSwing*.45,shoulderY+(running?20:45)];
+ const leftHand=raised?[-87,shoulderY-100]:action==='laugh'?[shoulderX-bodyWidth-12,shoulderY+65+Math.sin(t*12)*9]:[leftElbow[0]-15-armSwing*.55,leftElbow[1]+(running?10:38)];
+ const rightHand=wave?[bodyWidth+45+Math.sin(t*11)*9,shoulderY-110]:raised?[83,shoulderY-99]:action==='laugh'?[shoulderX+bodyWidth+12,shoulderY+65-Math.sin(t*12)*9]:[rightElbow[0]+15+armSwing*.55,rightElbow[1]+(running?10:38)];
  line([leftShoulder,leftElbow,leftHand],stick?8:12);
  line([rightShoulder,rightElbow,rightHand],stick?8:12);
  if(!stick){oval(...leftHand,10,10,skin,3);oval(...rightHand,10,10,skin,3)}
@@ -93,5 +94,5 @@ function render(c,s,t,opt={}){
  c.restore();
  return {x,y,facing,action,phase:cycle%1,pose};
 }
-root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.1',sample,ik});
+root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.2',sample,ik});
 })(window);
