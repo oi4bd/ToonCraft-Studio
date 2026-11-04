@@ -115,18 +115,43 @@ function render(c,s,t,opt={}){
  if(!stick){c.beginPath();c.ellipse(headX,headY-44,side?60:70,41,0,PI,TAU);c.fillStyle=hair;c.fill()}
  const headFacing=s.head&&s.head!=='auto'?s.head:facing;
  const headBack=headFacing==='back'||headFacing.startsWith('back');
+ const emotion=s.emotion||'happy';
+ // Deterministic blink every ~3.7s, with a short eyelid closure. No random state:
+ // scrubbing, preview and export produce the same expression at the same time.
+ const blinkPhase=((t+.42)%3.7+3.7)%3.7;
+ const blinking=blinkPhase<.13&&action!=='surprise'&&emotion!=='surprised';
+ const talking=action==='talk',surprised=action==='surprise'||emotion==='surprised'||emotion==='scared';
+ const sad=emotion==='sad',angry=emotion==='angry',laughing=action==='laugh';
+ const eye=(cx,cy,rx=16,ry=21)=>{
+  if(blinking){line([[cx-rx,cy],[cx+rx,cy]],3);return}
+  oval(cx,cy,rx,ry,'white',2);oval(cx+3,cy+3,6,9,ink);
+ };
+ const mouth=(mx,my)=>{
+  if(surprised){oval(mx,my,15,19,'#683f52',2);return}
+  if(talking){oval(mx,my,13,5+Math.abs(Math.sin(t*11))*12,'#683f52',2);return}
+  if(sad){c.beginPath();c.arc(mx,my+20,22,PI*1.15,PI*1.85);c.lineWidth=4;c.strokeStyle=ink;c.stroke();return}
+  if(laughing){oval(mx,my,23,12+Math.abs(Math.sin(t*12))*11,'#683f52',3);return}
+  if(angry){line([[mx-19,my+4],[mx+19,my-3]],4);return}
+  c.beginPath();c.arc(mx,my-15,25,0,PI);c.strokeStyle=ink;c.lineWidth=4;c.stroke();
+ };
  if(headBack){line([[headX-25,headY-43],[headX,headY-56],[headX+25,headY-43]],4,'#687488')}
  else if(side||headFacing==='left'||headFacing==='right'){
-  oval(headX+23,headY-11,12,17,'white',2);oval(headX+27,headY-9,5,8,ink);
+  eye(headX+23,headY-11,12,surprised?22:17);
+  if(angry)line([[headX+9,headY-37],[headX+39,headY-30]],4);
+  else if(sad)line([[headX+9,headY-30],[headX+39,headY-38]],3);
   line([[headX+59,headY+5],[headX+74,headY+17],[headX+58,headY+27]],3);
-  line([[headX+25,headY+44],[headX+45,headY+46]],3);
+  mouth(headX+33,headY+45);
  }else{
-  for(const dx of (quarter?[-23,23]:[-30,30])){oval(headX+dx,headY-10,16,21,'white',2);oval(headX+dx+3,headY-7,6,9,ink)}
-  if(action==='talk'||action==='surprise'||s.emotion==='surprised')oval(headX,headY+45,15,12+Math.abs(Math.sin(t*12))*6,'#683f52',2);
-  else{c.beginPath();c.arc(headX,headY+22,27,0,PI);c.strokeStyle=ink;c.lineWidth=4;c.stroke()}
+  for(const dx of (quarter?[-23,23]:[-30,30])){
+   eye(headX+dx,headY-10,16,surprised?27:21);
+   if(angry)line([[headX+dx-14,headY-41],[headX+dx+14,headY-32]],4);
+   else if(sad)line([[headX+dx-14,headY-32],[headX+dx+14,headY-41]],3);
+   else if(surprised)line([[headX+dx-12,headY-48],[headX+dx+12,headY-48]],3);
+  }
+  mouth(headX,headY+45);
  }
  c.restore();
  return {x,y,facing,action,phase:cycle%1,pose};
 }
-root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.5',sample,ik});
+root.ToonCraftCharacterV2=Object.freeze({render,version:'3.1.0',sample,ik});
 })(window);
