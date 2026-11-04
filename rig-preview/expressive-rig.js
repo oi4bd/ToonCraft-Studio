@@ -53,6 +53,23 @@
     c.scale(scale*mirror,scale);
     // Side-on body has a slimmer silhouette; back view has no facial features.
     if(side)c.scale(.82,1);
+    // Side profile: limbs swing in the travel axis; front view remains symmetric.
+    // All profile coordinates are defined facing right, then mirrored for left.
+    if(side){
+      const hipY=-135, shoulderY=-270, stride=p.step*42;
+      const backKnee=point(-stride*.5,-78),frontKnee=point(stride*.5,-78);
+      const backFoot=point(-stride,-Math.max(0,-p.step)*19);
+      const frontFoot=point(stride,-Math.max(0,p.step)*19);
+      stroke(c,[point(0,hipY),backKnee,backFoot],stick?10:16,ink);
+      stroke(c,[point(0,hipY),frontKnee,frontFoot],stick?10:16,ink);
+      if(stick)stroke(c,[point(0,hipY),point(0,shoulderY)],16,ink);
+      else{c.fillStyle=shirt;c.strokeStyle=ink;c.lineWidth=6;c.beginPath();c.roundRect(-27,-280,54,147,22);c.fill();c.stroke();}
+      const swing=p.gait?stride*.72:0;
+      const wave=p.action==='wave';
+      stroke(c,[point(0,-260),point(-25-swing*.5,-223),point(-32-swing,-174)],stick?9:13,ink);
+      stroke(c,[point(0,-260),point(23+swing*.5,-225),wave?point(43,-355+Math.sin(t*9)*12):point(34+swing,-174)],stick?9:13,ink);
+      stroke(c,[point(0,shoulderY),point(0,-303)],13,ink);
+    }else{
     const hip=point(0,-135),shoulder=point(0,-270),neck=point(0,-303);
     const kneeL=point(-18-leg*.4,-72),kneeR=point(18+leg*.4,-72);
     const footL=point(-25-leg, -p.lift),footR=point(25+leg, -Math.max(0,-p.step)*16);
@@ -71,6 +88,7 @@
     ellipse(c,leftHand.x,leftHand.y,11,11,skin,ink,3);
     ellipse(c,rightHand.x,rightHand.y,11,11,skin,ink,3);
     stroke(c,[shoulder,neck],14,ink);
+    }
     // Head direction is independent of body direction. It changes face features,
     // not the body's movement axis.
     c.save();c.translate(0,-377);
@@ -84,6 +102,11 @@
       c.beginPath();c.moveTo(-70,-32);c.quadraticCurveTo(-74,-110,-10,-91);
       c.quadraticCurveTo(44,-107,74,-32);c.quadraticCurveTo(5,-64,-70,-32);
       c.fillStyle=hair;c.fill();
+    }
+    if(headSide){
+      // A protruding nose and one visible eye make left/right profile readable.
+      c.beginPath();c.moveTo(66,-6);c.lineTo(90,13);c.lineTo(67,26);
+      c.fillStyle=skin;c.fill();c.strokeStyle=ink;c.lineWidth=5;c.stroke();
     }
     if(headBack){
       stroke(c,[point(-28,-53),point(0,-63),point(28,-53)],hair,7);
@@ -112,5 +135,5 @@
     c.restore();c.restore();
     return p;
   }
-  root.ToonCraftRig=Object.freeze({pose,draw,version:'1.0.0'});
+  root.ToonCraftRig=Object.freeze({pose,draw,version:'1.1.0'});
 })(window);
