@@ -35,4 +35,13 @@ for(const movement of ['ltr','rtl']){
 }
 const a=engine.sample(.25),b=engine.sample(1.25);
 for(const k of Object.keys(a))assert(Math.abs(a[k]-b[k])<1e-8,'pose loop periodic');
+
+// IK bone lengths must remain consistent for reachable ankle targets.
+for(const ankle of [[0,0],[30,0],[-30,-15],[0,-40],[50,-20]]){
+ const hip=[0,-148],knee=engine.ik(hip,ankle,80,80,-1);
+ const upper=Math.hypot(knee[0]-hip[0],knee[1]-hip[1]);
+ const lower=Math.hypot(knee[0]-ankle[0],knee[1]-ankle[1]);
+ assert(Math.abs(upper-80)<.01,'upper leg length preserved');
+ assert(Math.abs(lower-80)<.01,'lower leg length preserved');
+}
 console.log('PASS: 288 pose/time combinations, mirror direction and periodic gait');
