@@ -1,75 +1,94 @@
-/* ToonCraft production character renderer v2: articulated four-direction animation.
-   Uses the existing scene, time, style and palette; deterministic frame rendering. */
+/* ToonCraft skeletal renderer v3 — pose-keyed gait, two-bone IK, directional projection.
+   Pure deterministic canvas renderer: same frames for preview and video export. */
 (function(root){
 'use strict';
-const pi=Math.PI,clamp=(x,a,b)=>Math.max(a,Math.min(b,x)),lerp=(a,b,t)=>a+(b-a)*t;
+const PI=Math.PI,TAU=2*PI;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),mix=(a,b,t)=>a+(b-a)*t;
+const smooth=t=>t*t*(3-2*t);
+const poses=[
+ {phase:0,hip:0,front:43,rear:-43,frontLift:0,rearLift:0,arm:1},
+ {phase:.125,hip:13,front:24,rear:-35,frontLift:0,rearLift:13,arm:.7},
+ {phase:.25,hip:0,front:0,rear:-20,frontLift:0,rearLift:35,arm:0},
+ {phase:.375,hip:-12,front:-26,rear:24,frontLift:0,rearLift:24,arm:-.7},
+ {phase:.5,hip:0,front:-43,rear:43,frontLift:0,rearLift:0,arm:-1},
+ {phase:.625,hip:13,front:-35,rear:24,frontLift:13,rearLift:0,arm:-.7},
+ {phase:.75,hip:0,front:-20,rear:0,frontLift:35,rearLift:0,arm:0},
+ {phase:.875,hip:-12,front:24,rear:-26,frontLift:24,rearLift:0,arm:.7},
+ {phase:1,hip:0,front:43,rear:-43,frontLift:0,rearLift:0,arm:1}
+];
+function sample(phase){const q=((phase%1)+1)%1;let i=0;while(i<poses.length-2&&q>poses[i+1].phase)i++;const a=poses[i],b=poses[i+1],u=smooth((q-a.phase)/(b.phase-a.phase));const o={};for(const k of ['hip','front','rear','frontLift','rearLift','arm'])o[k]=mix(a[k],b[k],u);return o}
+function ik(hip,foot,upper=78,lower=76,forward=1){let dx=foot[0]-hip[0],dy=foot[1]-hip[1],d=Math.hypot(dx,dy)||1;const reach=clamp(d,1,upper+lower-.2),along=(upper*upper-lower*lower+reach*reach)/(2*reach),perp=Math.sqrt(Math.max(0,upper*upper-along*along));const ux=dx/d,uy=dy/d;return [hip[0]+ux*along+(-uy)*perp*forward,hip[1]+uy*along+ux*perp*forward]}
 function render(c,s,t,opt={}){
  const dur=Math.max(.1,Number(s.seconds)||4),p=clamp(t/dur,0,1),action=s.action||'idle',movement=s.movement||'still';
- const auto=({ltr:'right',rtl:'left',toward:'front',away:'back',still:'front'})[movement];
- const facing=s.facing==='auto'||!s.facing?auto:s.facing;
+ const auto={ltr:'right',rtl:'left',toward:'front',away:'back',still:'front'}[movement]||'front';
+ const facing=s.facing&&s.facing!=='auto'?s.facing:auto;
  const side=facing==='left'||facing==='right',back=facing==='back'||facing.startsWith('back'),quarter=facing.startsWith('front')||facing.startsWith('back');
- const dir=facing==='left'||facing.endsWith('left')?-1:1;
- const locomotion=action==='walk'||action==='run',speed=action==='run'?14:8.5;
- const gait=locomotion?Math.sin(t*speed):0,cycle=locomotion?Math.cos(t*speed):0;
- const intensity=clamp(Number(s.intensity)||1,.2,2);
- const stride=gait*(action==='run'?59:37)*intensity,arm=stride*.72;
- const liftA=locomotion?Math.max(0,cycle)*24:0,liftB=locomotion?Math.max(0,-cycle)*24:0;
- const bounce=locomotion?Math.abs(cycle)*5:0;
- const jump=action==='jump'?Math.sin(p*pi)**2*115:0;
+ const sign=facing==='left'||facing.endsWith('left')?-1:1;
+ const locomotion=action==='walk'||action==='run',running=action==='run';
+ const intensity=clamp(Number(s.intensity)||1,.1,2);
+ const cycle=t*(running?2.2:1.45),g=sample(cycle);
+ const strideFactor=running?1.35:1;
+ const jump=action==='jump'?Math.sin(p*PI)**2*105*intensity:0;
  let x=270,y=745,scale=Number(s.scale)||1;
- if(movement==='ltr')x=lerp(90,450,p);
- if(movement==='rtl')x=lerp(450,90,p);
- if(movement==='toward'){y=lerp(570,745,p);scale*=lerp(.65,1.2,p)}
- if(movement==='away'){y=lerp(745,570,p);scale*=lerp(1.2,.65,p)}
+ if(movement==='ltr')x=mix(90,450,p);
+ if(movement==='rtl')x=mix(450,90,p);
+ if(movement==='toward'){y=mix(570,745,p);scale*=mix(.65,1.2,p)}
+ if(movement==='away'){y=mix(745,570,p);scale*=mix(1.2,.65,p)}
  if(s.camera==='follow'&&movement!=='still')x=270;
- if(s.camera==='medium'){scale*=1.38;y=820}
- if(s.camera==='close'){scale*=1.38;x=270;y=780}
- const stick=opt.style==='stick',ink='#263246',skin=opt.colors?.skin||'#fff4e5',shirt=opt.colors?.shirt||'#f1a94e',hair=opt.colors?.hair||'#20283a';
- const line=(pts,w=9,color=ink)=>{c.beginPath();pts.forEach((q,i)=>i?c.lineTo(q[0],q[1]):c.moveTo(q[0],q[1]));c.strokeStyle=color;c.lineWidth=w;c.lineCap='round';c.lineJoin='round';c.stroke()};
- const oval=(x,y,rx,ry,fill,sw=4)=>{c.beginPath();c.ellipse(x,y,rx,ry,0,0,pi*2);c.fillStyle=fill;c.fill();if(sw){c.strokeStyle=ink;c.lineWidth=sw;c.stroke()}};
- c.save();c.translate(x,y-bounce-jump);c.scale(scale*dir,scale);
- c.globalAlpha=.18;oval(0,12,75,11,'#273d4a',0);c.globalAlpha=1;
- const sideWidth=side?8:quarter?17:25,lean=locomotion?(action==='run'?17:7):0;
- // Alternating planted feet: each leg swings opposite the other.
- // The previous renderer used identical stride signs, causing legs to cross.
- const leftStride=stride,rightStride=-stride;
- const kneeY=-75;
- const leftFootX=-sideWidth+leftStride,rightFootX=sideWidth+rightStride;
- if(side||quarter){
-   line([[-6,-143],[-8+rightStride*.46,kneeY],[-8+rightStride,-liftB]],stick?6:10,'#536071');
- }
- line([[-sideWidth,-143],[-sideWidth+leftStride*.45,kneeY], [leftFootX,-liftA]],stick?8:14);
- line([[sideWidth,-143],[sideWidth+rightStride*.45,kneeY],[rightFootX,-liftB]],stick?8:14);
- if(!stick){oval(leftFootX,-liftA+1,19,9,'#fff',3);oval(rightFootX,-liftB+1,19,9,'#fff',3)}
- if(stick)line([[0,-143],[lean,-274]],12);else{
- c.beginPath();c.moveTo(-37,-275);c.lineTo(37,-275);c.lineTo(29,-146);c.lineTo(-29,-146);c.closePath();c.fillStyle=shirt;c.fill();c.strokeStyle=ink;c.lineWidth=6;c.stroke();
- }
- const shoulder=side?12:quarter?27:43,handWave=action==='wave',handPoint=action==='point',handsUp=action==='jump';
- const leftHand=handsUp?[-76,-357]:[-shoulder-45+arm,-180];
- const rightHand=handWave?[shoulder+36,-354+Math.sin(t*11)*13]:handPoint?[shoulder+95,-268]:handsUp?[76,-357]:[shoulder+45-arm,-180];
- line([[-shoulder,-265],[-shoulder-28,-224],leftHand],stick?8:13);
- line([[shoulder,-265],[shoulder+28,-224],rightHand],stick?8:13);
- if(!stick){oval(leftHand[0],leftHand[1],11,11,skin,3);oval(rightHand[0],rightHand[1],11,11,skin,3)}
- line([[lean,-275],[lean,-308]],stick?10:19);
- const hx=lean+(side?12:quarter?7:0),hy=-374;
- oval(hx,hy,side?65:quarter?74:83,88,skin,7);
- if(!stick){c.beginPath();c.ellipse(hx,hy-45,side?60:73,43,0,pi,2*pi);c.fillStyle=hair;c.fill()}
+ if(s.camera==='medium'){scale*=1.24;y=785}
+ if(s.camera==='close'){scale*=1.33;x=270;y=780}
+ const style=opt.style||'comic',stick=style==='stick';
+ const col=opt.colors||{},skin=col.skin||'#fff4e5',shirt=col.shirt||'#f1a94e',hair=col.hair||'#20283a',ink='#263246';
+ const line=(points,w=9,color=ink)=>{c.beginPath();points.forEach((v,i)=>i?c.lineTo(v[0],v[1]):c.moveTo(v[0],v[1]));c.lineWidth=w;c.strokeStyle=color;c.lineCap='round';c.lineJoin='round';c.stroke()};
+ const oval=(x,y,rx,ry,color,stroke=0)=>{c.beginPath();c.ellipse(x,y,rx,ry,0,0,TAU);c.fillStyle=color;c.fill();if(stroke){c.strokeStyle=ink;c.lineWidth=stroke;c.stroke()}};
+ const bodyWidth=side?12:quarter?25:40;
+ const pose=locomotion?g:{hip:0,front:0,rear:0,frontLift:0,rearLift:0,arm:0};
+ const bodyBob=locomotion?pose.hip*(running?1.3:1):0;
+ const lean=locomotion?(running?24:8):action==='surprise'?-10:0;
+ c.save();c.translate(x,y-jump);c.scale(scale*sign,scale);
+ c.globalAlpha=.15;oval(0,10,75,10,'#263246');c.globalAlpha=1;
+ // Foot anchors are independently derived from a full keyed cycle; IK fixes bone lengths.
+ const hipY=-148+bodyBob,hipLeft=[-bodyWidth*.5,hipY],hipRight=[bodyWidth*.5,hipY];
+ const spread=side?3:quarter?11:22;
+ const f1=locomotion?[spread+pose.front*strideFactor,-pose.frontLift*intensity]:[-spread,0];
+ const f2=locomotion?[-spread+pose.rear*strideFactor,-pose.rearLift*intensity]:[spread,0];
+ const knee1=ik(hipLeft,f1,80,80,-1),knee2=ik(hipRight,f2,80,80,1);
+ // Draw far leg first and near leg last to preserve overlap.
+ const legWidth=stick?8:14;
+ line([hipRight,knee2,f2],legWidth,side||quarter?'#657185':ink);
+ line([hipLeft,knee1,f1],legWidth);
+ if(!stick){oval(f2[0]+10,f2[1]+2,19,8,'#f7f7f8',3);oval(f1[0]+10,f1[1]+2,19,8,'#f7f7f8',3)}
+ const shoulderY=-266+bodyBob,shoulderX=lean;
+ if(stick)line([[0,hipY],[shoulderX,shoulderY]],11);
+ else{c.beginPath();c.moveTo(shoulderX-bodyWidth,shoulderY);c.lineTo(shoulderX+bodyWidth,shoulderY);c.lineTo(bodyWidth*.7,hipY);c.lineTo(-bodyWidth*.7,hipY);c.closePath();c.fillStyle=shirt;c.fill();c.strokeStyle=ink;c.lineWidth=6;c.stroke()}
+ const armSwing=locomotion?pose.arm*(running?38:26)*intensity:0;
+ const wave=action==='wave',raised=action==='jump'||action==='surprise';
+ const leftShoulder=[shoulderX-bodyWidth,shoulderY],rightShoulder=[shoulderX+bodyWidth,shoulderY];
+ const leftElbow=raised?[-78,shoulderY-42]:[shoulderX-bodyWidth-22-armSwing*.45,shoulderY+45];
+ const rightElbow=wave||raised?[bodyWidth+23,shoulderY-47]:[shoulderX+bodyWidth+22+armSwing*.45,shoulderY+45];
+ const leftHand=raised?[-87,shoulderY-100]:[leftElbow[0]-15-armSwing*.55,leftElbow[1]+38];
+ const rightHand=wave?[bodyWidth+45+Math.sin(t*11)*9,shoulderY-110]:raised?[83,shoulderY-99]:[rightElbow[0]+15+armSwing*.55,rightElbow[1]+38];
+ line([leftShoulder,leftElbow,leftHand],stick?8:12);
+ line([rightShoulder,rightElbow,rightHand],stick?8:12);
+ if(!stick){oval(...leftHand,10,10,skin,3);oval(...rightHand,10,10,skin,3)}
+ const headX=shoulderX+(side?10:quarter?6:0),headY=shoulderY-103;
+ line([[shoulderX,shoulderY],[headX,headY+76]],stick?9:15);
+ oval(headX,headY,side?64:quarter?73:81,85,skin,6);
+ if(!stick){c.beginPath();c.ellipse(headX,headY-44,side?60:70,41,0,PI,TAU);c.fillStyle=hair;c.fill()}
  const headFacing=s.head&&s.head!=='auto'?s.head:facing;
- const faceBack=headFacing==='back'||headFacing.startsWith('back');
- const faceSide=headFacing==='left'||headFacing==='right';
- if(!faceBack){
-   if(faceSide||side){ // one eye and protruding profile nose
-     oval(hx+24,hy-10,11,18,'#fff',2);oval(hx+28,hy-7,5,9,ink,0);
-     line([[hx+60,hy+2],[hx+77,hy+17],[hx+60,hy+28]],4);
-     line([[hx+26,hy+44],[hx+50,hy+47]],3);
-   }else{
-     const spread=quarter?23:31;
-     for(const dx of [-spread,spread]){oval(hx+dx,hy-9,16,22,'white',2);oval(hx+dx+3,hy-7,6,10,ink,0)}
-     if(action==='talk'||s.emotion==='surprised'||action==='surprise')oval(hx,hy+48,16,14+Math.abs(Math.sin(t*12))*7,'#683f52',3);
-     else{c.beginPath();c.arc(hx,hy+24,28,0,pi);c.strokeStyle=ink;c.lineWidth=4;c.stroke()}
-   }
- }else line([[hx-30,hy-45],[hx,hy-57],[hx+30,hy-45]],4,'#59667b');
- c.restore();return {x,y,facing,action,stride};
+ const headBack=headFacing==='back'||headFacing.startsWith('back');
+ if(headBack){line([[headX-25,headY-43],[headX,headY-56],[headX+25,headY-43]],4,'#687488')}
+ else if(side||headFacing==='left'||headFacing==='right'){
+  oval(headX+23,headY-11,12,17,'white',2);oval(headX+27,headY-9,5,8,ink);
+  line([[headX+59,headY+5],[headX+74,headY+17],[headX+58,headY+27]],3);
+  line([[headX+25,headY+44],[headX+45,headY+46]],3);
+ }else{
+  for(const dx of (quarter?[-23,23]:[-30,30])){oval(headX+dx,headY-10,16,21,'white',2);oval(headX+dx+3,headY-7,6,9,ink)}
+  if(action==='talk'||action==='surprise'||s.emotion==='surprised')oval(headX,headY+45,15,12+Math.abs(Math.sin(t*12))*6,'#683f52',2);
+  else{c.beginPath();c.arc(headX,headY+22,27,0,PI);c.strokeStyle=ink;c.lineWidth=4;c.stroke()}
+ }
+ c.restore();
+ return {x,y,facing,action,phase:cycle%1,pose};
 }
-root.ToonCraftCharacterV2=Object.freeze({render,version:'2.1.0'});
+root.ToonCraftCharacterV2=Object.freeze({render,version:'3.0.0',sample,ik});
 })(window);
